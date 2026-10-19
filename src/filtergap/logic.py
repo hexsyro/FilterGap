@@ -12,8 +12,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from filtergap.common import ToolResult
-from filtergap.common import as_bool, as_str, clamp, find_id, get, to_float, to_int, tokenize
+from filtergap.common import ToolResult, as_bool, as_str, clamp, find_id, get, to_float, to_int, tokenize
 from filtergap.stats import hamming, shannon_entropy, simhash_fingerprint
 
 TEXT_COLUMNS = ["text", "content", "message", "body", "post"]

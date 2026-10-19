@@ -3,4 +3,4 @@
 from filtergap.logic import FilterGapLogic, run
 
 __version__ = "0.1.0"
-__all__ = ["FilterGapLogic", "run", "__version__"]
+__all__ = ["FilterGapLogic", "__version__", "run"]
