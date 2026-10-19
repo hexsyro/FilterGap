@@ -38,7 +38,7 @@ ML_WEIGHTS: dict[str, float] = {
     "random_text": 2.0,
     "coordinated_cluster": 2.5,
     "link_heavy": 1.5,
-    "low_followers": 1.5,
+    "low_trust_low_engagement": 1.5,
 }
 ML_BIAS = -2.6
 
