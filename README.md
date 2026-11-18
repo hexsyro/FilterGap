@@ -27,12 +27,17 @@ clustering, folded into a single 0–1 confidence per mention.
   add up, catching the borderline bots a rule list alone misses.
 - **Tunable confidence.** One `--threshold` decides how aggressive you want to
   be, because "bot" is a business decision, not a fact.
+- **Explanations and calibration.** Each finding carries its top weighted
+  signals; if you supply ground truth, the report also shows how well the
+  scores actually separated bots from humans.
 
 ## What it is not
 
-It is not a verdict. Every finding carries its signals and confidence so a
-human can overrule it. A verified, established account posting a link is not a
-bot, and FilterGap is built to not pretend otherwise.
+It is not a verdict. Automation confidence and harm confidence are triage
+signals, not proof: a bot can be harmless and a human can post spam. Every
+finding carries its signals and explanation so a human can overrule it. A
+verified, established account posting a link is not a bot, and FilterGap is
+built to not pretend otherwise.
 
 ## Install
 
@@ -72,15 +77,20 @@ Columns are matched loosely: text from `text`, `content`, `message`, `body`, or
 | `--config FILE` | JSON config; explicit flags win |
 | `--format {table,json,csv,md}` | Output format (default `table`) |
 | `--output FILE` | Write to file instead of stdout |
+| `--explain` | Print per-finding explanations in table/markdown output (JSON always includes them) |
 | `--fail-on {none,low,medium,high}` | Exit 1 if any finding is at or above this severity |
 | `--version` | Print version and exit |
+
+Config files (JSON) accept `threshold` (number) and `explain` (boolean). Invalid
+value types exit 2 with a clear message; through the library API they are
+ignored with a warning instead of raising.
 
 ## Output (json)
 
 ```json
 {
   "tool": "filtergap",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "status": "success",
   "findings": [
     {
@@ -93,22 +103,73 @@ Columns are matched loosely: text from `text`, `content`, `message`, `body`, or
         "heuristic_score": 1.0,
         "classifier_score": 0.87,
         "threshold": 0.5,
-        "signals": {"new_account": 0.35, "high_frequency": 0.5, "link_heavy": 0.2}
+        "signals": {"new_account": 0.35, "high_frequency": 0.5, "link_heavy": 0.2},
+        "top_signals": [
+          {"name": "high_frequency", "value": 0.5, "contribution": 1.5},
+          {"name": "new_account", "value": 0.35, "contribution": 1.05}
+        ],
+        "explanation": "Automation 1.00, harm 0.70; top signals: high_frequency (+1.50), new_account (+1.05). Triage signal, not a verdict.",
+        "automation_confidence": 1.0,
+        "harm_confidence": 0.7
       }
     }
   ],
   "summary": {
+    "result_schema_version": "1.1",
     "checked": 7,
     "flagged": 4,
     "flagged_percent": 57.14,
     "avg_confidence": 0.62,
     "signals": {"new_account": 4, "coordinated_cluster": 3},
+    "signals_flagged": {"new_account": 4, "coordinated_cluster": 3},
+    "entropy_skipped_non_ascii": 1,
+    "explanations": [
+      {
+        "record_id": "b1",
+        "score": 1.0,
+        "severity": "high",
+        "top_signals": [{"name": "high_frequency", "value": 0.5, "contribution": 1.5}],
+        "text": "Check out this amazing deal now now now click here",
+        "automation_confidence": 1.0,
+        "harm_confidence": 0.7
+      }
+    ],
+    "explanations_truncated": 0,
+    "calibration": null,
+    "skipped": false,
+    "skip_reason": null,
     "patterns_version": "2026.10",
     "ml_layer": true,
     "classifier_flagged": 4
   }
 }
 ```
+
+### Explanations
+
+Every flagged row appears in `summary["explanations"]` with its `record_id`,
+`score`, `severity`, the full `text`, and `top_signals` ranked by weighted
+contribution to the logistic score. Only the first 50 are stored;
+`explanations_truncated` says how many were omitted. Findings also carry
+`metadata["top_signals"]` and a readable `metadata["explanation"]`. Use
+`--explain` to print them in table/markdown reports; JSON always includes them.
+
+### Calibration
+
+If your data has a boolean or 0-1 column named `is_bot`, `bot_label`, `label`,
+or `ground_truth`, the summary includes a `calibration` object with `n`,
+`brier_score`, `precision_at_threshold`, `false_discovery_rate`, and five
+reliability buckets comparing predicted score with the observed positive rate.
+Without ground truth, `calibration` is `null` and the report warns that the
+score is uncalibrated — treat it as triage only.
+
+### Automation vs harm
+
+`automation_confidence` is the final score (how automated the behaviour looks).
+`harm_confidence` is built only from spam/harm signals — duplicate content,
+link-heavy posts, coordinated clusters, and low-trust/low-engagement — capped
+to 0–1. They answer different questions: a bot can be harmless, and a human can
+post spam. Neither is a verdict.
 
 ## Using it in CI
 
@@ -137,6 +198,38 @@ result.summary["flagged"]
   identical posts to fire; a lone bot posting boilerplate won't trip it.
 - **Your columns matter.** Without account-age or frequency fields, FilterGap
   can only judge the text itself.
+
+## Changelog
+
+## [0.2.0] - 2026-11-19
+
+### Added
+
+- Result schema `1.1`: exported `RESULT_SCHEMA_VERSION`, plus `skipped`/`skip_reason` on every run.
+- First-class explanations (`summary["explanations"]`, `metadata["top_signals"]`,
+  `metadata["explanation"]`) and an `--explain` flag for table/markdown output.
+- Calibration against optional ground-truth columns: Brier score, precision/FDR at threshold, and
+  five reliability bins; a warning when no ground truth is available.
+- Separate `automation_confidence` and `harm_confidence` triage scores in explanations and findings.
+- Deterministic LSH/token-signature candidate generation for coordinated clustering, with a
+  warning when more than 2000 text rows are eligible.
+- Strict option type validation with clear CLI errors (exit 2).
+
+### Fixed
+
+- Entropy screening skips mostly non-Latin text and reports `entropy_skipped_non_ascii`.
+- `verified` has a negative weight in the logistic layer, so verified accounts are not flagged by it.
+- `summary["signals"]` counts all fired signals; the old flagged-only counts are now in
+  `summary["signals_flagged"]`.
+- `threshold` no longer raises out of `run()` on malformed config values.
+- The no-rows warning no longer implies text-only rows are excluded from checking.
+
+### Inspiration
+
+- [Bot-detection false-positive discipline](https://fingerprint.com/blog/bot-detection)
+- ["Differentiate" good vs bad bots](https://pmc.ncbi.nlm.nih.gov/articles/PMC11958817)
+- [Coordinated timing/hashtag signals](https://link.springer.com/article/10.1007/s13278-025-01557-1)
+- [CLI-as-API best practices](https://hackmd.io/@arturtamborski/cli-best-practices)
 
 ## License
 

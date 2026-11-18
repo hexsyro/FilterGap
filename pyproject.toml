@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "filtergap"
-version = "0.1.0"
+version = "0.2.0"
 description = "Catch bot and spam mentions that slip through budget-tier listening tools: account heuristics, entropy screening, SimHash clustering, and a logistic layer."
 readme = "README.md"
 license = "MIT"
@@ -36,6 +36,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 
 [tool.ruff]

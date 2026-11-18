@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from filtergap import __version__
-from filtergap.common import SEVERITY_RANK, load_rows
+from filtergap.common import SEVERITY_RANK, load_rows, validate_options
 from filtergap.logic import FilterGapLogic
 from filtergap.output import render, worst_severity
 
@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--config", metavar="FILE", help="JSON file of options")
     parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="print per-finding explanations in table/markdown output (JSON always includes them)",
+    )
+    parser.add_argument(
         "--threshold",
         type=float,
         metavar="T",
@@ -62,6 +67,9 @@ def _merge_options(args: argparse.Namespace) -> dict[str, Any]:
         options.update(parsed)
     if args.threshold is not None:
         options["threshold"] = args.threshold
+    invalid = validate_options(options)
+    if invalid:
+        raise ValueError("; ".join(invalid))
     return options
 
 
@@ -82,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{TOOL}: {exc}", file=sys.stderr)
         return 2
     result = FilterGapLogic().run(rows, options)
-    text = render(result, args.format, tool=TOOL, version=__version__)
+    text = render(result, args.format, tool=TOOL, version=__version__, explain=args.explain)
     if args.output:
         Path(args.output).write_text(text, encoding="utf-8")
     else:

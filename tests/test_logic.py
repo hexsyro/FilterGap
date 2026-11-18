@@ -86,7 +86,9 @@ def test_verified_reduces_confidence():
         "account_age_days": 0.2,
         "verified": True,
     }
-    result = logic.run([base], {"threshold": 0.05})
+    # 0.2.0: the logistic layer now gives verified a negative weight, so the
+    # finding only appears at a deliberately low threshold.
+    result = logic.run([base], {"threshold": 0.01})
     signals = result.findings[0]["metadata"]["signals"]
     assert signals["verified"] == -0.5
 

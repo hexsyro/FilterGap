@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -19,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3}
+RESULT_SCHEMA_VERSION = "1.1"
 
 
 @dataclass
@@ -44,6 +46,8 @@ def norm_key(key: Any) -> str:
 def index_row(row: dict) -> dict[str, Any]:
     """Return a row indexed by normalized column name (first occurrence wins)."""
     indexed: dict[str, Any] = {}
+    if not isinstance(row, dict):
+        return indexed
     for key, value in row.items():
         normalized = norm_key(key)
         if normalized and normalized not in indexed:
@@ -195,6 +199,58 @@ def opt_int(options: dict, key: str, default: int) -> int:
         return int(options.get(key, default))
     except (TypeError, ValueError):
         return default
+
+
+def opt_bool(options: dict, key: str, default: bool | None = None) -> bool | None:
+    """Read a boolean option, falling back to ``default`` for anything else."""
+    value = options.get(key, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in {"1", "true", "yes", "y", "on"}:
+            return True
+        if text in {"0", "false", "no", "n", "off"}:
+            return False
+    return default
+
+
+# Known option names and the type we accept for them. Unknown keys are ignored
+# so future pipeline metadata can travel alongside the options we understand.
+_OPTION_TYPES: dict[str, str] = {"threshold": "number", "explain": "boolean"}
+
+
+def validate_options(options: Any) -> list[str]:
+    """Return clear error strings for malformed option value *types*.
+
+    Used by the CLI to fail with exit code 2 before any work starts, and by the
+    library entry point to degrade gracefully (it never raises on config data).
+    """
+    if not isinstance(options, dict):
+        return [f"options must be a JSON object, got {type(options).__name__}"]
+
+    errors: list[str] = []
+    for key, expected in _OPTION_TYPES.items():
+        if key not in options:
+            continue
+        value = options[key]
+        if expected == "number":
+            if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+                errors.append(
+                    f"invalid config value type for '{key}': expected a number, got {type(value).__name__}"
+                )
+                continue
+            parsed = opt_float(options, key, math.nan)
+            if not math.isfinite(parsed):
+                errors.append(f"invalid config value for '{key}': {value!r} is not a finite number")
+        elif expected == "boolean":
+            if opt_bool(options, key, None) is None:
+                errors.append(
+                    f"invalid config value type for '{key}': expected a boolean, got {value!r}"
+                )
+    return errors
 
 
 # ---------------------------------------------------------------------------

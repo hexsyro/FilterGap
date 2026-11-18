@@ -10,15 +10,15 @@ import textwrap
 from filtergap.common import SEVERITY_RANK, ToolResult
 
 
-def render(result: ToolResult, fmt: str, *, tool: str, version: str) -> str:
+def render(result: ToolResult, fmt: str, *, tool: str, version: str, explain: bool = False) -> str:
     """Render ``result`` in the requested format."""
     if fmt == "json":
         return _json(result, tool, version)
     if fmt == "csv":
         return _csv(result)
     if fmt in {"md", "markdown"}:
-        return _markdown(result, tool, version)
-    return _table(result, tool, version)
+        return _markdown(result, tool, version, explain=explain)
+    return _table(result, tool, version, explain=explain)
 
 
 def worst_severity(result: ToolResult) -> str | None:
@@ -62,7 +62,7 @@ def _csv(result: ToolResult) -> str:
     return buffer.getvalue()
 
 
-def _markdown(result: ToolResult, tool: str, version: str) -> str:
+def _markdown(result: ToolResult, tool: str, version: str, *, explain: bool = False) -> str:
     checked = result.summary.get("checked")
     lines = [
         f"# {tool} report",
@@ -85,6 +85,18 @@ def _markdown(result: ToolResult, tool: str, version: str) -> str:
     else:
         lines.append("No findings.")
     lines.append("")
+    explanations = result.summary.get("explanations") or []
+    if explain and explanations:
+        lines += ["## Explanations", ""]
+        for item in explanations:
+            top = ", ".join(f"{s['name']} ({s['contribution']:+.2f})" for s in item.get("top_signals", []))
+            lines.append(
+                f"- **{item.get('record_id') or '-'}** — score {item.get('score')}, "
+                f"automation {item.get('automation_confidence')}, harm {item.get('harm_confidence')}"
+            )
+            lines.append(f"  - Text: {str(item.get('text', ''))[:200]}")
+            lines.append(f"  - Top signals: {top or 'none'}")
+        lines.append("")
     if result.warnings:
         lines.append("## Warnings")
         lines.append("")
@@ -101,7 +113,7 @@ def _markdown(result: ToolResult, tool: str, version: str) -> str:
     return "\n".join(lines)
 
 
-def _table(result: ToolResult, tool: str, version: str) -> str:
+def _table(result: ToolResult, tool: str, version: str, *, explain: bool = False) -> str:
     checked = result.summary.get("checked")
     header = f"{tool} {version} — {len(result.findings)} finding(s)"
     if checked is not None:
@@ -120,6 +132,21 @@ def _table(result: ToolResult, tool: str, version: str) -> str:
         wrapped = textwrap.wrap(message, width=88)
         for part in wrapped or [""]:
             lines.append(f"           {part}")
+        lines.append("")
+
+    explanations = result.summary.get("explanations") or []
+    if explain and explanations:
+        lines.append("Explanations:")
+        for item in explanations:
+            top = ", ".join(f"{s['name']} ({s['contribution']:+.2f})" for s in item.get("top_signals", []))
+            lines.append(
+                f"  - {item.get('record_id') or '-'!s:<14} "
+                f"automation={item.get('automation_confidence')} harm={item.get('harm_confidence')}"
+            )
+            lines.append(f"    top: {top or 'none'}")
+            preview = str(item.get("text", ""))[:100]
+            if preview:
+                lines.append(f"    text: {preview}")
         lines.append("")
 
     if result.warnings:
