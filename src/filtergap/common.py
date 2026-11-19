@@ -238,18 +238,14 @@ def validate_options(options: Any) -> list[str]:
         value = options[key]
         if expected == "number":
             if isinstance(value, bool) or not isinstance(value, (int, float, str)):
-                errors.append(
-                    f"invalid config value type for '{key}': expected a number, got {type(value).__name__}"
-                )
+                errors.append(f"invalid config value type for '{key}': expected a number, got {type(value).__name__}")
                 continue
             parsed = opt_float(options, key, math.nan)
             if not math.isfinite(parsed):
                 errors.append(f"invalid config value for '{key}': {value!r} is not a finite number")
         elif expected == "boolean":
             if opt_bool(options, key, None) is None:
-                errors.append(
-                    f"invalid config value type for '{key}': expected a boolean, got {value!r}"
-                )
+                errors.append(f"invalid config value type for '{key}': expected a boolean, got {value!r}")
     return errors
 
 

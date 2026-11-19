@@ -68,12 +68,14 @@ ML_BIAS = -2.6
 
 # Only these signals describe *harmful* content, as opposed to merely automated
 # behaviour. They drive the separate harm_confidence triage score.
-HARM_SIGNALS = frozenset({
-    "duplicate_content",
-    "link_heavy",
-    "coordinated_cluster",
-    "low_trust_low_engagement",
-})
+HARM_SIGNALS = frozenset(
+    {
+        "duplicate_content",
+        "link_heavy",
+        "coordinated_cluster",
+        "low_trust_low_engagement",
+    }
+)
 
 MAX_EXPLANATIONS = 50
 EXPLANATION_TOP_SIGNALS = 5
@@ -184,10 +186,7 @@ class FilterGapLogic:
                 {
                     "severity": severity,
                     "field": "bot_confidence",
-                    "message": (
-                        f"Mention scored {confidence:.2f} bot/spam confidence "
-                        f"(threshold {threshold:.2f})."
-                    ),
+                    "message": (f"Mention scored {confidence:.2f} bot/spam confidence (threshold {threshold:.2f})."),
                     "record_id": find_id(row),
                     "metadata": {
                         "confidence": confidence,
@@ -439,9 +438,7 @@ class FilterGapLogic:
                     "bin": f"{index / 5:.1f}-{(index + 1) / 5:.1f}",
                     "n": size,
                     "avg_predicted": round(sum(s for s, _ in members) / size, 3) if size else 0.0,
-                    "observed_positive_rate": round(sum(1 for _, label in members if label) / size, 3)
-                    if size
-                    else 0.0,
+                    "observed_positive_rate": round(sum(1 for _, label in members if label) / size, 3) if size else 0.0,
                 }
             )
         return {
@@ -464,9 +461,7 @@ class FilterGapLogic:
         confidence, signals, _ = self._score_row_detailed(row, coordinated)
         return confidence, signals
 
-    def _score_row_detailed(
-        self, row: dict, coordinated: bool = False
-    ) -> tuple[float, dict[str, float], bool]:
+    def _score_row_detailed(self, row: dict, coordinated: bool = False) -> tuple[float, dict[str, float], bool]:
         confidence = 0.0
         signals: dict[str, float] = {}
         entropy_skipped = False

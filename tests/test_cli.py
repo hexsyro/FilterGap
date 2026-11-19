@@ -19,10 +19,7 @@ BOT_CSV = (
     'b1,"Check out this amazing deal now now now click here",0.5,250,3,2\n'
 )
 
-MODERATE_CSV = (
-    "id,text,account_age_days,posts_per_day\n"
-    'm1,"posting a lot today about all sorts of things",0.5,50\n'
-)
+MODERATE_CSV = 'id,text,account_age_days,posts_per_day\nm1,"posting a lot today about all sorts of things",0.5,50\n'
 
 
 def test_json_output(tmp_path, capsys):
