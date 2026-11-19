@@ -243,9 +243,8 @@ def validate_options(options: Any) -> list[str]:
             parsed = opt_float(options, key, math.nan)
             if not math.isfinite(parsed):
                 errors.append(f"invalid config value for '{key}': {value!r} is not a finite number")
-        elif expected == "boolean":
-            if opt_bool(options, key, None) is None:
-                errors.append(f"invalid config value type for '{key}': expected a boolean, got {value!r}")
+        elif expected == "boolean" and opt_bool(options, key, None) is None:
+            errors.append(f"invalid config value type for '{key}': expected a boolean, got {value!r}")
     return errors
 
 
